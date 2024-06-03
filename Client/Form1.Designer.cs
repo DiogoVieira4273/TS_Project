@@ -41,7 +41,6 @@
             this.buttonDisconnect = new System.Windows.Forms.Button();
             this.listBoxConversa = new System.Windows.Forms.ListBox();
             this.button_Login = new System.Windows.Forms.Button();
-            this.button1 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // label3
@@ -177,22 +176,11 @@
             this.button_Login.UseVisualStyleBackColor = true;
             this.button_Login.Click += new System.EventHandler(this.button_Login_Click);
             // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(167, 337);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 27;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(886, 400);
-            this.Controls.Add(this.button1);
             this.Controls.Add(this.button_Login);
             this.Controls.Add(this.listBoxConversa);
             this.Controls.Add(this.buttonDisconnect);
@@ -228,7 +216,6 @@
         private System.Windows.Forms.Button buttonDisconnect;
         private System.Windows.Forms.ListBox listBoxConversa;
         private System.Windows.Forms.Button button_Login;
-        private System.Windows.Forms.Button button1;
     }
 }
 

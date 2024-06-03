@@ -13,6 +13,7 @@ using System.Net.Sockets;
 using EI.SI;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
+using System.IO;
 
 namespace Client
 {
@@ -24,6 +25,8 @@ namespace Client
         ProtocolSI protocolSI;
         TcpClient client;
         IPEndPoint endPoint;
+        RSACryptoServiceProvider rsa;
+        AesCryptoServiceProvider aes
         private const int SALTSIZE = 8;
         private const int NUMBER_OF_ITERATIONS = 1000;  
 
@@ -68,9 +71,6 @@ namespace Client
                 //errorconnected = true;
             }
         }
-
-        private RSACryptoServiceProvider rsa;
-        private AesCryptoServiceProvider aes;
 
         // thread cliente que recebe dados do servidor a partir de tipos de protocolos especificos que o servidor envia mensagem desse tipo
         private void threadClient(object obj)
@@ -365,38 +365,94 @@ namespace Client
             return rfc2898.GetBytes(32);
         }
 
+        //GERAR UMA CHAVE SIMÉTRICA A PARTIR DE UMA STRING
         private string GerarChavePrivada(string pass)
         {
-            byte[] salt = new byte[] { 1, 9, 3, 4, 1, 0, 5, 8 }; // this is fixed... It would be better you used something different for each user
-
-            // You can raise 1000 to greater numbers... more cycles = more security. Try
-            // balancing speed with security.
+            // O salt tem de ter no mínimo 8 bytes e não
+            // é mais do que array be bytes. O array é caracterizado pelo []
+            byte[] salt = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
             Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
 
-            //generate key
+            //GERAR KEY
             byte[] key = pwdGen.GetBytes(16);
-
-            //CONVERTER A PASS EM BASE64
             string passB64 = Convert.ToBase64String(key);
 
-            //DEVOLVER A PASS EM BYTES
             return passB64;
         }
 
-        private void GenerateChavePublica()
+        //GERAR UM VETOR DE INICIALIZAÇÃO A PARTIR DE UMA STRING
+        private string GerarIV(string pass)
         {
-            rsa = new RSACryptoServiceProvider();
+            byte[] salt = new byte[] { 7, 6, 5, 4, 3, 2, 1, 0 };
 
-            string publicKey = rsa.ToXmlString(false);
+            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
+
+            //GERAR IV
+            byte[] iv = pwdGen.GetBytes(16);
+
+            string ivB64 = Convert.ToBase64String(iv);
+
+            return ivB64;
         }
 
-        private void GenerateChaveSimetrica()
+        //MÉTODO PARA CIFRAR O TEXTO
+        private string CifrarTexto(string txt)
         {
-            rsa = new RSACryptoServiceProvider();
 
-            string bothKey = rsa.ToXmlString(true);
+            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO EM BYTES
+            byte[] txtDecifrado = Encoding.UTF8.GetBytes(txt);
+
+            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
+            byte[] txtCifrado;
+
+            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E CIFRÁ-LO
+            MemoryStream ms = new MemoryStream();
+
+            //INICIALIZAR O SISTEMA DE CIFRAGEM (WRITE)
+            CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+
+            //CIFRAR OS DADOS
+            cs.Write(txtDecifrado, 0, txtDecifrado.Length);
+            cs.Close();
+
+            //GUARDAR OS DADOS CIFRADO QUE ESTÃO NA MEMÓRIA
+            txtCifrado = ms.ToArray();
+
+            //CONVERTER OS BYTES PARA BASE64 (TEXTO)
+            string txtCifradoB64 = Convert.ToBase64String(txtCifrado);
+
+            //DEVOLVER OS BYTES CRIADOS EM BASE64
+            return txtCifradoB64;
         }
 
-        
+
+        //MÉTODO PARA DECIFRAR O TEXTO
+        private string DecifrarTexto(string txtCifradoB64)
+        {
+            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
+            byte[] txtCifrado = Convert.FromBase64String(txtCifradoB64);
+
+            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E DECIFRÁ-LO
+            MemoryStream ms = new MemoryStream(txtCifrado);
+
+            //INICIALIZAR O SISTEMA DE CIFRAGEM (READ)
+            CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Read);
+
+            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO
+            byte[] txtDecifrado = new byte[ms.Length];
+
+            //VARIÁVEL PARA TER O NÚMERO DE BYTES DECIFRADOS
+            int bytesLidos = 0;
+
+            //DECIFRAR OS DADOS
+            bytesLidos = cs.Read(txtDecifrado, 0, txtDecifrado.Length);
+            cs.Close();
+
+            //CONVERTER PARA TEXTO
+            string textoDecifrado = Encoding.UTF8.GetString(txtDecifrado, 0, bytesLidos);
+
+            //DEVOLVER TEXTO DECIFRADO
+            return textoDecifrado;
+        }
     }
 }

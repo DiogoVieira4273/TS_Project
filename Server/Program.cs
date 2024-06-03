@@ -9,6 +9,7 @@ using EI.SI;
 using System.Threading;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
+using System.IO;
 
 namespace Server
 {
@@ -173,13 +174,13 @@ namespace Server
             {
                 // Configurar ligação à Base de Dados
                 conn = new SqlConnection();
-                conn.ConnectionString = String.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                 // Abrir ligação à Base de Dados
                 conn.Open();
 
                 // Declaração do comando SQL
-                String sql = "SELECT * FROM Users WHERE Username = @username";
+                string sql = "SELECT * FROM Users WHERE Username = @username";
                 SqlCommand cmd = new SqlCommand();
                 cmd.CommandText = sql;
 
@@ -220,19 +221,19 @@ namespace Server
             }
             catch (Exception e)
             {
-                Console.WriteLine("An error occurred: " + e.Message);
+                MessageBox.Show("An error occurred: " + e.Message);
                 return false;
             }
         }
 
-        private void Register(string username, byte[] saltedPasswordHash, byte[] salt)
+        private void Register(string username, byte[] salt, byte[] saltedPasswordHash)
         {
             SqlConnection conn = null;
             try
             {
                 // Configurar ligação à Base de Dados
                 conn = new SqlConnection();
-                conn.ConnectionString = String.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                 // Abrir ligação à Base de Dados
                 conn.Open();
@@ -243,7 +244,7 @@ namespace Server
                 SqlParameter paramPassHash = new SqlParameter("@saltedPasswordHash", saltedPasswordHash);
 
                 // Declaração do comando SQL
-                String sql = "INSERT INTO Users (Username, SaltedPasswordHash, Salt) VALUES (@username,@saltedPasswordHash,@salt)";
+                string sql = "INSERT INTO Users (Username, SaltedPasswordHash, Salt) VALUES (@username,@saltedPasswordHash,@salt)";
 
                 // Prepara comando SQL para ser executado na Base de Dados
                 SqlCommand cmd = new SqlCommand(sql, conn);
@@ -258,6 +259,7 @@ namespace Server
 
                 // Fechar ligação
                 conn.Close();
+
                 if (lines == 0)
                 {
                     // Se forem devolvidas 0 linhas alteradas então o não foi executado com sucesso
@@ -283,6 +285,96 @@ namespace Server
         {
             Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
             return rfc2898.GetBytes(32);
+        }
+
+        //GERAR UMA CHAVE SIMÉTRICA A PARTIR DE UMA STRING
+        private string GerarChavePrivada(string pass)
+        {
+            // O salt tem de ter no mínimo 8 bytes e não
+            // é mais do que array be bytes. O array é caracterizado pelo []
+            byte[] salt = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
+            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
+
+            //GERAR KEY
+            byte[] key = pwdGen.GetBytes(16);
+            string passB64 = Convert.ToBase64String(key);
+
+            return passB64;
+        }
+
+        //GERAR UM VETOR DE INICIALIZAÇÃO A PARTIR DE UMA STRING
+        private string GerarIV(string pass)
+        {
+            byte[] salt = new byte[] { 7, 6, 5, 4, 3, 2, 1, 0 };
+
+            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
+
+            //GERAR IV
+            byte[] iv = pwdGen.GetBytes(16);
+
+            string ivB64 = Convert.ToBase64String(iv);
+
+            return ivB64;
+        }
+
+        //MÉTODO PARA CIFRAR O TEXTO
+        private string CifrarTexto(string txt)
+        {
+
+            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO EM BYTES
+            byte[] txtDecifrado = Encoding.UTF8.GetBytes(txt);
+
+            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
+            byte[] txtCifrado;
+
+            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E CIFRÁ-LO
+            MemoryStream ms = new MemoryStream();
+
+            //INICIALIZAR O SISTEMA DE CIFRAGEM (WRITE)
+            CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+
+            //CIFRAR OS DADOS
+            cs.Write(txtDecifrado, 0, txtDecifrado.Length);
+            cs.Close();
+
+            //GUARDAR OS DADOS CIFRADO QUE ESTÃO NA MEMÓRIA
+            txtCifrado = ms.ToArray();
+
+            //CONVERTER OS BYTES PARA BASE64 (TEXTO)
+            string txtCifradoB64 = Convert.ToBase64String(txtCifrado);
+
+            //DEVOLVER OS BYTES CRIADOS EM BASE64
+            return txtCifradoB64;
+        }
+
+
+        //MÉTODO PARA DECIFRAR O TEXTO
+        private string DecifrarTexto(string txtCifradoB64)
+        {
+            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
+            byte[] txtCifrado = Convert.FromBase64String(txtCifradoB64);
+
+            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E DECIFRÁ-LO
+            MemoryStream ms = new MemoryStream(txtCifrado);
+
+            //INICIALIZAR O SISTEMA DE CIFRAGEM (READ)
+            CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Read);
+
+            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO
+            byte[] txtDecifrado = new byte[ms.Length];
+
+            //VARIÁVEL PARA TER O NÚMERO DE BYTES DECIFRADOS
+            int bytesLidos = 0;
+
+            //DECIFRAR OS DADOS
+            bytesLidos = cs.Read(txtDecifrado, 0, txtDecifrado.Length);
+            cs.Close();
+
+            //CONVERTER PARA TEXTO
+            string textoDecifrado = Encoding.UTF8.GetString(txtDecifrado, 0, bytesLidos);
+
+            //DEVOLVER TEXTO DECIFRADO
+            return textoDecifrado;
         }
     }
 }
