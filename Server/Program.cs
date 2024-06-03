@@ -28,6 +28,8 @@ namespace Server
         private static ProtocolSI protocolSI = new ProtocolSI();
         private const int SALTSIZE = 8;
         private const int NUMBER_OF_ITERATIONS = 1000;
+        RSACryptoServiceProvider rsa;
+        AesCryptoServiceProvider aes;
 
         static void Main(string[] args)
         {
@@ -221,7 +223,7 @@ namespace Server
             }
             catch (Exception e)
             {
-                MessageBox.Show("An error occurred: " + e.Message);
+                Console.WriteLine("An error occurred: " + e.Message);
                 return false;
             }
         }

@@ -26,7 +26,7 @@ namespace Client
         TcpClient client;
         IPEndPoint endPoint;
         RSACryptoServiceProvider rsa;
-        AesCryptoServiceProvider aes
+        AesCryptoServiceProvider aes;
         private const int SALTSIZE = 8;
         private const int NUMBER_OF_ITERATIONS = 1000;  
 
