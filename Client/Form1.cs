@@ -23,8 +23,9 @@ namespace Client
         NetworkStream networkStream;
         ProtocolSI protocolSI;
         TcpClient client;
-        IPEndPoint endPoint; 
-        private const int NUMBER_OF_ITERATIONS = 1000;
+        IPEndPoint endPoint;
+        private const int SALTSIZE = 8;
+        private const int NUMBER_OF_ITERATIONS = 1000;  
 
         public Form1()
         {
@@ -67,6 +68,9 @@ namespace Client
                 //errorconnected = true;
             }
         }
+
+        private RSACryptoServiceProvider rsa;
+        private AesCryptoServiceProvider aes;
 
         // thread cliente que recebe dados do servidor a partir de tipos de protocolos especificos que o servidor envia mensagem desse tipo
         private void threadClient(object obj)
@@ -180,13 +184,14 @@ namespace Client
             try
             {
                 //criação de um array de bytes com a mensagem a enviar e envio da mesma para o servidor
+
                 byte[] packet = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, dadoscifradados);
                 // Enviar mensagem
                 networkStream.Write(packet, 0, packet.Length);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                MessageBox.Show("Erro no envio de dados ao servidor.", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"{ex.Message}", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -214,21 +219,21 @@ namespace Client
             string user = textBoxUsername.Text;
             string pass = textBoxPassword.Text;
 
+            byte[] salt = GenerateSalt(SALTSIZE);
+            byte[] saltedPasswordHash = GenerateSaltedHash(pass, salt);
+
             if (string.IsNullOrEmpty(textBoxUsername.Text) || string.IsNullOrEmpty(textBoxPassword.Text))
             {
-                MessageBox.Show("O utilizador e/ou a palavra-passe são obrigatórios");
+                MessageBox.Show("Username or password can't be blank");
             }
 
-            if (Register(user, pass))
-            {
-                MessageBox.Show("Utilizador registado com sucesso", "Registo com sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            Register(user, salt, saltedPasswordHash);
         }
 
         private void button_Login_Click(object sender, EventArgs e)
         {
             string user = textBoxUsername.Text;
-            string pass= textBoxPassword.Text;
+            string pass = textBoxPassword.Text;
 
             if (VerifyLogin(user, pass))
             {
@@ -247,13 +252,13 @@ namespace Client
             {
                 // Configurar ligação à Base de Dados
                 conn = new SqlConnection();
-                conn.ConnectionString = String.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                 // Abrir ligação à Base de Dados
                 conn.Open();
 
                 // Declaração do comando SQL
-                String sql = "SELECT * FROM Users WHERE Username = @username";
+                string sql = "SELECT * FROM Users WHERE Username = @username";
                 SqlCommand cmd = new SqlCommand();
                 cmd.CommandText = sql;
 
@@ -285,6 +290,10 @@ namespace Client
 
                 conn.Close();
 
+                byte[] hash = GenerateSaltedHash(password, saltStored);
+
+                return saltedPasswordHashStored.SequenceEqual(hash);
+
                 //TODO: verificar se a password na base de dados 
                 throw new NotImplementedException();
             }
@@ -295,14 +304,14 @@ namespace Client
             }
         }
 
-        private void Register(string username, byte[] saltedPasswordHash, byte[] salt)
+        private void Register(string username, byte[] salt, byte[] saltedPasswordHash)
         {
             SqlConnection conn = null;
             try
             {
                 // Configurar ligação à Base de Dados
                 conn = new SqlConnection();
-                conn.ConnectionString = String.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                 // Abrir ligação à Base de Dados
                 conn.Open();
@@ -313,7 +322,7 @@ namespace Client
                 SqlParameter paramPassHash = new SqlParameter("@saltedPasswordHash", saltedPasswordHash);
 
                 // Declaração do comando SQL
-                String sql = "INSERT INTO Users (Username, SaltedPasswordHash, Salt) VALUES (@username,@saltedPasswordHash,@salt)";
+                string sql = "INSERT INTO Users (Username, SaltedPasswordHash, Salt) VALUES (@username,@saltedPasswordHash,@salt)";
 
                 // Prepara comando SQL para ser executado na Base de Dados
                 SqlCommand cmd = new SqlCommand(sql, conn);
@@ -328,6 +337,7 @@ namespace Client
 
                 // Fechar ligação
                 conn.Close();
+
                 if (lines == 0)
                 {
                     // Se forem devolvidas 0 linhas alteradas então o não foi executado com sucesso
@@ -349,10 +359,44 @@ namespace Client
             return buff;
         }
 
-        private static byte[] GenerateSaltedHash(byte[] plainText, byte[] salt)
+        private static byte[] GenerateSaltedHash(string plainText, byte[] salt)
         {
             Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
             return rfc2898.GetBytes(32);
         }
+
+        private string GerarChavePrivada(string pass)
+        {
+            byte[] salt = new byte[] { 1, 9, 3, 4, 1, 0, 5, 8 }; // this is fixed... It would be better you used something different for each user
+
+            // You can raise 1000 to greater numbers... more cycles = more security. Try
+            // balancing speed with security.
+            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
+
+            //generate key
+            byte[] key = pwdGen.GetBytes(16);
+
+            //CONVERTER A PASS EM BASE64
+            string passB64 = Convert.ToBase64String(key);
+
+            //DEVOLVER A PASS EM BYTES
+            return passB64;
+        }
+
+        private void GenerateChavePublica()
+        {
+            rsa = new RSACryptoServiceProvider();
+
+            string publicKey = rsa.ToXmlString(false);
+        }
+
+        private void GenerateChaveSimetrica()
+        {
+            rsa = new RSACryptoServiceProvider();
+
+            string bothKey = rsa.ToXmlString(true);
+        }
+
+        
     }
 }

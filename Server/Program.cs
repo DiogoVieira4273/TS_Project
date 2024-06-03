@@ -24,7 +24,8 @@ namespace Server
 
         private static int clientCounter = 0;
         // declaraçao do ProtocoloSI
-        private static ProtocolSI protocolSI = new ProtocolSI(); 
+        private static ProtocolSI protocolSI = new ProtocolSI();
+        private const int SALTSIZE = 8;
         private const int NUMBER_OF_ITERATIONS = 1000;
 
         static void Main(string[] args)
@@ -210,6 +211,10 @@ namespace Server
 
                 conn.Close();
 
+                byte[] hash = GenerateSaltedHash(password, saltStored);
+
+                return saltedPasswordHashStored.SequenceEqual(hash);
+
                 //TODO: verificar se a password na base de dados 
                 throw new NotImplementedException();
             }
@@ -274,7 +279,7 @@ namespace Server
             return buff;
         }
 
-        private static byte[] GenerateSaltedHash(byte[] plainText, byte[] salt)
+        private static byte[] GenerateSaltedHash(string plainText, byte[] salt)
         {
             Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
             return rfc2898.GetBytes(32);
