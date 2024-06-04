@@ -26,9 +26,8 @@ namespace Client
         TcpClient client;
         IPEndPoint endPoint;
         RSACryptoServiceProvider rsa;
+        RSACryptoServiceProvider rsaVerify;
         AesCryptoServiceProvider aes;
-        private const int SALTSIZE = 8;
-        private const int NUMBER_OF_ITERATIONS = 1000;  
 
         public Form1()
         {
@@ -81,71 +80,29 @@ namespace Client
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
                     int bytesread = networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
-                    string resposta = "";
-                    string decifrar_resposta = "";
+
                     switch (protocolSI.GetCmdType())
                     {
                         //caso o protocolo seja do tipo Mode escreve na listBox_chat a mensagem dos clientes
                         case ProtocolSICmdType.MODE:
-                            string dados_mensagem = protocolSI.GetStringFromData();
-                            string dados_mensagem_decifrados = "";
-                            /// dados_mensagem_decifrados = DecifrarTexto(dados_mensagem);
-                            dados_mensagem_decifrados = dados_mensagem;
-                            string[] itemsmessage = dados_mensagem_decifrados.Split(';');
+                            byte[] dados_mensagemEnc = protocolSI.GetData();
+                            string dados_mensagem = Encoding.UTF8.GetString(dados_mensagemEnc);
+
                             this.Invoke((MethodInvoker)delegate
                             {
-                                listBoxConversa.Items.Add(itemsmessage[0]);
+                                listBoxConversa.Items.Add(dados_mensagem);
                                 //     listBoxConversa.Text = dados_mensagem_decifrados;
 
                             });
                             //Select_item_listbox();
                             break;
-
-                        // caso o protoloco for do tipo DATA.
-                        // Este protocolo serve para atualizar a célula de jogo no tabuleiro que foi selecionada pelo cliente
-                        case ProtocolSICmdType.DATA:
-                            resposta = protocolSI.GetStringFromData();
-                            // decifrar_resposta = DecifrarTexto(resposta);
-                            decifrar_resposta = resposta;
-                            string[] itemsposicao = decifrar_resposta.Split(';');
-                            int[] itemsposicaoint = new int[2];
-                            break;
-
-                        // caso o protocolo for EOT é porque o cliente quer se desconectar
-                        case ProtocolSICmdType.EOT:
-                            try
-                            {
-                                // enquanto o servidor não retornar com diferente de EOT não dá ordem para o clietne terminar
-                                while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
-                                {
-                                    networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
-                                }
-                            }
-                            catch (Exception)
-                            {
-                            }
-                            break;
                     }
                 }
-
-                while (protocolSI.GetCmdType() != ProtocolSICmdType.ACK)
-                {
-                    networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
-                }
-                ack = protocolSI.Make(ProtocolSICmdType.ACK);
-                networkStream.Write(ack, 0, ack.Length);
-                // desliga a coneção e o networkstream
-                client.Close();
-                networkStream.Close();
             }
             catch (Exception)
             {
                 MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                this.Invoke((MethodInvoker)delegate
-                {
-                    //groupBox1.Enabled = false;
-                    //  groupBox3.Enabled = false;
-                });
+                
             }
         }
 
@@ -174,28 +131,73 @@ namespace Client
 
         private void Form1_Load(object sender, EventArgs e) //Não é necessário
         {
-
+            textBoxEscreverMensagem.Enabled = false;
+            buttonEnviarMensagem.Enabled = false;
+            listBoxConversa.Enabled = false;
         }
 
         private void buttonEnviarMensagem_Click(object sender, EventArgs e)
         {
+            rsa = new RSACryptoServiceProvider();
+            aes = new AesCryptoServiceProvider();
+            rsaVerify = new RSACryptoServiceProvider();
 
-            string dadoscifradados = textBoxEscreverMensagem.Text;
-            try
-            {
-                //criação de um array de bytes com a mensagem a enviar e envio da mesma para o servidor
+            string privateKeyFile = "../../../privatekey.txt";
+            string ivFile = "../../../IV.txt";
+            string publicKeyFile = "../../../publickey.txt";
+            string bothFile = "../../../bothkeys.txt";
+            string hFile = "../../../hash.txt";
+            string signFile = "../../../signature.txt";
 
-                byte[] packet = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, dadoscifradados);
-                // Enviar mensagem
-                networkStream.Write(packet, 0, packet.Length);
-            }
-            catch (Exception ex)
+            byte[] data;
+            byte[] hash;
+
+            string publicKey = rsa.ToXmlString(false);
+            File.WriteAllText(publicKeyFile, publicKey);
+
+            string bothKeys = rsa.ToXmlString(true);
+            File.WriteAllText(bothFile, bothKeys);
+
+            string privateKey = GerarChavePrivada();
+            string IV = GerarIV();
+            File.WriteAllText(privateKeyFile, privateKey);
+            File.WriteAllText(ivFile, IV);
+
+            byte[] keyaes = Convert.FromBase64String(privateKey);
+            aes.Key = keyaes;
+
+            byte[] ivaes = Convert.FromBase64String(IV);
+            aes.IV = ivaes;
+
+            string msg = textBoxEscreverMensagem.Text;
+            rsaVerify.FromXmlString(publicKey);
+
+            if (msg == "")
             {
-                MessageBox.Show($"{ex.Message}", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Escrever mensagem", "",MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            finally
+            else
             {
-                textBoxEscreverMensagem.Text = "";
+                textBoxEscreverMensagem.Clear();
+
+                string msgEnc = CifrarTexto(textBoxEscreverMensagem.Text);
+                byte[] meb = Convert.FromBase64String(msgEnc);
+
+                using (SHA1 sha1 = SHA1.Create())
+                {
+                    data = Encoding.UTF8.GetBytes(msg);
+
+                    hash = sha1.ComputeHash(data);
+                }
+                File.WriteAllBytes(hFile, hash);
+
+                byte[] sign = rsa.SignHash(hash, CryptoConfig.MapNameToOID("SHA1"));
+                File.WriteAllBytes(signFile, sign);
+
+                byte[] encrypt = rsa.Encrypt(meb, RSAEncryptionPadding.Pkcs1);
+
+                byte[] pack = protocolSI.Make(ProtocolSICmdType.DATA, encrypt);
+                networkStream.Write(pack, 0, pack.Length);
             }
         }
 
@@ -214,162 +216,142 @@ namespace Client
             this.Close();
         }
 
-        private void button_Registo_Click(object sender, EventArgs e)
-        {
-            string user = textBoxUsername.Text;
-            string pass = textBoxPassword.Text;
-
-            byte[] salt = GenerateSalt(SALTSIZE);
-            byte[] saltedPasswordHash = GenerateSaltedHash(pass, salt);
-
-            if (string.IsNullOrEmpty(textBoxUsername.Text) || string.IsNullOrEmpty(textBoxPassword.Text))
-            {
-                MessageBox.Show("Username or password can't be blank");
-            }
-
-            Register(user, salt, saltedPasswordHash);
-        }
-
         private void button_Login_Click(object sender, EventArgs e)
         {
             string user = textBoxUsername.Text;
             string pass = textBoxPassword.Text;
 
-            if (VerifyLogin(user, pass))
+
+            if (string.IsNullOrEmpty(textBoxUsername.Text) || string.IsNullOrEmpty(textBoxPassword.Text))
             {
-                MessageBox.Show("Utilizador logado com sucesso", "Início de sessão com sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Username or password can't be blank");
             }
             else
             {
-                MessageBox.Show("Erro de inicio de sessão", "Utilizador ou palavara-passe incorretos", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                var login = Juntar(user, pass);
+
+                EnviarLogin(login);
             }
         }
 
-        private bool VerifyLogin(string username, string password)
+        private void EnviarLogin(string login)
         {
-            SqlConnection conn = null;
             try
             {
-                // Configurar ligação à Base de Dados
-                conn = new SqlConnection();
-                conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, login);
 
-                // Abrir ligação à Base de Dados
-                conn.Open();
+                networkStream.Write(senhaByes, 0, senhaByes.Length);
 
-                // Declaração do comando SQL
-                string sql = "SELECT * FROM Users WHERE Username = @username";
-                SqlCommand cmd = new SqlCommand();
-                cmd.CommandText = sql;
-
-                // Declaração dos parâmetros do comando SQL
-                SqlParameter param = new SqlParameter("@username", username);
-
-                // Introduzir valor ao parâmentro registado no comando SQL
-                cmd.Parameters.Add(param);
-
-                // Associar ligação à Base de Dados ao comando a ser executado
-                cmd.Connection = conn;
-
-                // Executar comando SQL
-                SqlDataReader reader = cmd.ExecuteReader();
-
-                if (!reader.HasRows)
+                while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
-                    throw new Exception("Error while trying to access an user");
+                    MessageBox.Show("Login succeed");
+
+                    switch (protocolSI.GetCmdType())
+                    {
+                        case ProtocolSICmdType.USER_OPTION_3:
+                            var msg = protocolSI.GetStringFromData();
+                            var log = Convert.ToBoolean(msg);
+                            if (log == true)
+                            {
+                                MessageBox.Show("Login succeed");
+                                textBoxUsername.Clear();
+                                textBoxPassword.Clear();
+                                textBoxEscreverMensagem.Enabled = true;
+                                buttonEnviarMensagem.Enabled = true;
+                            }
+                            else if (log == false)
+                            {
+                                MessageBox.Show("Login error");
+                            }
+                            break;
+                        default:
+                            MessageBox.Show("Login again");
+                            break;
+                    }
+                    return;
                 }
-
-                // Ler resultado da pesquisa
-                reader.Read();
-
-                // Obter Hash (password + salt)
-                byte[] saltedPasswordHashStored = (byte[])reader["SaltedPasswordHash"];
-
-                // Obter salt
-                byte[] saltStored = (byte[])reader["Salt"];
-
-                conn.Close();
-
-                byte[] hash = GenerateSaltedHash(password, saltStored);
-
-                return saltedPasswordHashStored.SequenceEqual(hash);
-
-                //TODO: verificar se a password na base de dados 
-                throw new NotImplementedException();
+                networkStream.Close();
+                client.Close();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                MessageBox.Show("An error occurred: " + e.Message);
-                return false;
+                MessageBox.Show($"{ex.Message}", "", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void Register(string username, byte[] salt, byte[] saltedPasswordHash)
+        private void button_Registo_Click(object sender, EventArgs e)
         {
-            SqlConnection conn = null;
+            string user = textBoxUsername.Text;
+            string pass = textBoxPassword.Text;
+
+            if (string.IsNullOrEmpty(textBoxUsername.Text) || string.IsNullOrEmpty(textBoxPassword.Text))
+            {
+                MessageBox.Show("Username or password can't be blank");
+            }
+            else
+            {
+                var registo = Juntar(user, pass);
+
+                RegistarLogin(registo);
+            }
+        }
+
+        public string Juntar(string user, string pass)
+        {
+            string juntado = (user + "+" + pass);
+
+            return juntado;
+        }
+
+        private void RegistarLogin(string juntado)
+        {
             try
             {
-                // Configurar ligação à Base de Dados
-                conn = new SqlConnection();
-                conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, juntado);
 
-                // Abrir ligação à Base de Dados
-                conn.Open();
+                networkStream.Write(senhaByes, 0, senhaByes.Length);
 
-                // Declaração dos parâmetros do comando SQL
-                SqlParameter paramUsername = new SqlParameter("@username", username);
-                SqlParameter paramSalt = new SqlParameter("@salt", salt);
-                SqlParameter paramPassHash = new SqlParameter("@saltedPasswordHash", saltedPasswordHash);
-
-                // Declaração do comando SQL
-                string sql = "INSERT INTO Users (Username, SaltedPasswordHash, Salt) VALUES (@username,@saltedPasswordHash,@salt)";
-
-                // Prepara comando SQL para ser executado na Base de Dados
-                SqlCommand cmd = new SqlCommand(sql, conn);
-
-                // Introduzir valores aos parâmentros registados no comando SQL
-                cmd.Parameters.Add(paramUsername);
-                cmd.Parameters.Add(paramPassHash);
-                cmd.Parameters.Add(paramSalt);
-
-                // Executar comando SQL
-                int lines = cmd.ExecuteNonQuery();
-
-                // Fechar ligação
-                conn.Close();
-
-                if (lines == 0)
+                while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
-                    // Se forem devolvidas 0 linhas alteradas então o não foi executado com sucesso
-                    throw new Exception("Error while inserting an user");
+                    MessageBox.Show("Register recept");
+
+                    switch (protocolSI.GetCmdType())
+                    {
+                        case ProtocolSICmdType.USER_OPTION_4:
+                            var msg = protocolSI.GetStringFromData();
+                            var reg = Convert.ToBoolean(msg);
+                            if (reg == true)
+                            {
+                                MessageBox.Show("Register succeed");
+                                textBoxUsername.Clear();
+                                textBoxPassword.Clear();
+                            }
+                            else if (reg == false)
+                            {
+                                MessageBox.Show("Register error");
+                            }
+                            break;
+                        default:
+                            MessageBox.Show("Register again");
+                            break;
+                    }
+                    return;
                 }
+                networkStream.Close();
+                client.Close();
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                throw new Exception("Error while inserting an user:" + e.Message);
+                MessageBox.Show("Error", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        private static byte[] GenerateSalt(int size)
-        {
-            //Generate a cryptographic random number.
-            RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
-            byte[] buff = new byte[size];
-            rng.GetBytes(buff);
-            return buff;
-        }
-
-        private static byte[] GenerateSaltedHash(string plainText, byte[] salt)
-        {
-            Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
-            return rfc2898.GetBytes(32);
         }
 
         //GERAR UMA CHAVE SIMÉTRICA A PARTIR DE UMA STRING
-        private string GerarChavePrivada(string pass)
+        private string GerarChavePrivada()
         {
             // O salt tem de ter no mínimo 8 bytes e não
             // é mais do que array be bytes. O array é caracterizado pelo []
+            string pass = "TS";
             byte[] salt = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
             Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
 
@@ -381,8 +363,10 @@ namespace Client
         }
 
         //GERAR UM VETOR DE INICIALIZAÇÃO A PARTIR DE UMA STRING
-        private string GerarIV(string pass)
+        private string GerarIV()
         {
+            string pass = "TS";
+
             byte[] salt = new byte[] { 7, 6, 5, 4, 3, 2, 1, 0 };
 
             Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
@@ -423,36 +407,6 @@ namespace Client
 
             //DEVOLVER OS BYTES CRIADOS EM BASE64
             return txtCifradoB64;
-        }
-
-
-        //MÉTODO PARA DECIFRAR O TEXTO
-        private string DecifrarTexto(string txtCifradoB64)
-        {
-            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
-            byte[] txtCifrado = Convert.FromBase64String(txtCifradoB64);
-
-            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E DECIFRÁ-LO
-            MemoryStream ms = new MemoryStream(txtCifrado);
-
-            //INICIALIZAR O SISTEMA DE CIFRAGEM (READ)
-            CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Read);
-
-            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO
-            byte[] txtDecifrado = new byte[ms.Length];
-
-            //VARIÁVEL PARA TER O NÚMERO DE BYTES DECIFRADOS
-            int bytesLidos = 0;
-
-            //DECIFRAR OS DADOS
-            bytesLidos = cs.Read(txtDecifrado, 0, txtDecifrado.Length);
-            cs.Close();
-
-            //CONVERTER PARA TEXTO
-            string textoDecifrado = Encoding.UTF8.GetString(txtDecifrado, 0, bytesLidos);
-
-            //DEVOLVER TEXTO DECIFRADO
-            return textoDecifrado;
         }
     }
 }
