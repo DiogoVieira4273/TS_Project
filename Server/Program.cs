@@ -132,7 +132,7 @@ namespace Server
                         networkStream.Write(ack, 0, ack.Length);
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
                 }
@@ -229,8 +229,8 @@ namespace Server
                                 var login = protocolSI.GetData();
                                 string juntado = Encoding.UTF8.GetString(login);
                                 string[] separar = juntado.Split('+');
-                                string user = "nada";
-                                string pass = "nada";
+                                string user = "miguel";
+                                string pass = "123";
 
                                 if (juntado.Length == 2)
                                 {
@@ -250,8 +250,8 @@ namespace Server
                                 var register = protocolSI.GetData();
                                 string juntar = Encoding.UTF8.GetString(register);
                                 string[] separado = juntar.Split('+');
-                                string username = "nada";
-                                string password = "nada";
+                                string username = "diogo";
+                                string password = "1234";
 
                                 if (juntar.Length == 2)
                                 {
@@ -280,20 +280,20 @@ namespace Server
                 }
             }
 
-            private bool VerifyLogin(string username, string password)
+            public bool VerifyLogin(string username, string password)
             {
                 SqlConnection conn = null;
                 try
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf; Integrated Security = True");
+                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Client\Projeto.mdf; Integrated Security = True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
 
                     // Declaração do comando SQL
-                    String sql = "SELECT * FROM Users WHERE Username = @username";
+                    string sql = "SELECT * FROM Users WHERE Username = @username";
                     SqlCommand cmd = new SqlCommand();
                     cmd.CommandText = sql;
 
@@ -317,11 +317,11 @@ namespace Server
                     // Ler resultado da pesquisa
                     reader.Read();
 
-                    // Obter salt
-                    byte[] saltStored = (byte[])reader["SaltPassword"];
-
                     // Obter Hash (password + salt)
-                    byte[] saltedPasswordHashStored = (byte[])reader["HashSalted"];
+                    byte[] saltedPasswordHashStored = (byte[])reader["SaltedPasswordHash"];
+
+                    // Obter salt
+                    byte[] saltStored = (byte[])reader["Salt"];
 
                     conn.Close();
 
@@ -330,7 +330,7 @@ namespace Server
                     return saltedPasswordHashStored.SequenceEqual(hash);
 
                     //TODO: verificar se a password na base de dados 
-                    //throw new NotImplementedException();
+                    throw new NotImplementedException();
                 }
                 catch (Exception e)
                 {
@@ -339,14 +339,14 @@ namespace Server
                 }
             }
 
-            private bool RegistarMensagem(byte[] mensagem, int userID)
+            public bool RegistarMensagem(byte[] mensagem, int userID)
             {
                 SqlConnection conn = null;
                 try
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf; Integrated Security = True");
+                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Client\Projeto.mdf; Integrated Security = True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
@@ -382,33 +382,33 @@ namespace Server
                 }
             }
 
-            private bool Register(string username, byte[] salt, byte[] saltedPasswordHash)
+            public bool Register(string username, byte[] salt, byte[] saltedPasswordHash)
             {
                 SqlConnection conn = null;
                 try
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf; Integrated Security = True");
+                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Client\Projeto.mdf; Integrated Security = True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
 
                     // Declaração dos parâmetros do comando SQL
                     SqlParameter paramUsername = new SqlParameter("@username", username);
-                    SqlParameter paramSalt = new SqlParameter("@SaltPassword", salt);
-                    SqlParameter paramPassHash = new SqlParameter("@HashSalted", saltedPasswordHash);
+                    SqlParameter paramSalt = new SqlParameter("@saltPassord", salt);
+                    SqlParameter paramPassHash = new SqlParameter("@hashSalted", saltedPasswordHash);
 
                     // Declaração do comando SQL
-                    String sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@SaltPassword,@hashSalted)";
+                    string sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@saltPassord,@hashSalted)";
 
                     // Prepara comando SQL para ser executado na Base de Dados
                     SqlCommand cmd = new SqlCommand(sql, conn);
 
                     // Introduzir valores aos parâmentros registados no comando SQL
                     cmd.Parameters.Add(paramUsername);
-                    cmd.Parameters.Add(paramPassHash);
                     cmd.Parameters.Add(paramSalt);
+                    cmd.Parameters.Add(paramPassHash);
 
                     // Executar comando SQL
                     int lines = cmd.ExecuteNonQuery();
@@ -424,7 +424,7 @@ namespace Server
                 }
             }
 
-            public static byte[] GenerateSalt(int size)
+            private static byte[] GenerateSalt(int size)
             {
                 //Generate a cryptographic random number.
                 RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
@@ -433,7 +433,7 @@ namespace Server
                 return buff;
             }
 
-            public static byte[] GenerateSaltedHash(string plainText, byte[] salt)
+            private static byte[] GenerateSaltedHash(string plainText, byte[] salt)
             {
                 Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
                 return rfc2898.GetBytes(32);
