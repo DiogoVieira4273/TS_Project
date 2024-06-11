@@ -20,7 +20,6 @@ namespace Client
     public partial class Form1 : Form
     {
         private const int PORT = 10000;
-        private string IP = IPAddress.Loopback.ToString();
         NetworkStream networkStream;
         ProtocolSI protocolSI;
         TcpClient client;
@@ -34,41 +33,17 @@ namespace Client
             try
             {
                 // cria a ligação com o cliente
-                endPoint = new IPEndPoint(IPAddress.Parse(IP), PORT);
+                endPoint = new IPEndPoint(IPAddress.Loopback, PORT);
                 client = new TcpClient();
                 client.Connect(endPoint);
                 networkStream = client.GetStream();
                 protocolSI = new ProtocolSI();
-                rsa = new RSACryptoServiceProvider();
-                aes = new AesCryptoServiceProvider();
-                rsaVerify = new RSACryptoServiceProvider();
 
                 // verifica se a ligação do cliente com o servidor foi bem sucessida
                 //se for true a ligação foi bem sucedida, se for falso a ligação nao foi bem sucedida porque o servidor já esta lotado
                 if (Ligacao(protocolSI) == true)
                 {
-                    string privateKeyFile = "../../../privatekey.txt";
-                    string ivFile = "../../../IV.txt";
-                    string publicKeyFile = "../../../publickey.txt";
-                    string bothFile = "../../../bothkeys.txt";
-
-                    string publicKey = rsa.ToXmlString(false);
-                    File.WriteAllText(publicKeyFile, publicKey);
-
-                    string bothKeys = rsa.ToXmlString(true);
-                    File.WriteAllText(bothFile, bothKeys);
-
-                    string privateKey = GerarChavePrivada();
-                    string IV = GerarIV();
-                    File.WriteAllText(privateKeyFile, privateKey);
-                    File.WriteAllText(ivFile, IV);
-
-                    byte[] keyaes = Convert.FromBase64String(privateKey);
-                    aes.Key = keyaes;
-
-                    byte[] ivaes = Convert.FromBase64String(IV);
-                    aes.IV = ivaes;
-
+                  
                     //conecção com o servidor autenticado
                     InitializeComponent();
                     // inicia a thread do cliente para ficar a escuta dos dados que o servidor enviar
@@ -126,7 +101,7 @@ namespace Client
             }
             catch (Exception)
             {
-                MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                //MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 
             }
         }
@@ -161,18 +136,81 @@ namespace Client
             listBoxConversa.Enabled = false;
         }
 
+        //GERAR UMA CHAVE SIMÉTRICA A PARTIR DE UMA STRING
+        private string GerarChavePrivada()
+        {
+            // O salt tem de ter no mínimo 8 bytes e não
+            // é mais do que array be bytes. O array é caracterizado pelo []
+            string pass = "TS";
+            byte[] salt = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
+            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
+
+            //GERAR KEY
+            byte[] key = pwdGen.GetBytes(16);
+            string passB64 = Convert.ToBase64String(key);
+
+            return passB64;
+        }
+
+        //GERAR UM VETOR DE INICIALIZAÇÃO A PARTIR DE UMA STRING
+        private string GerarIV()
+        {
+            string pass = "TS";
+
+            byte[] salt = new byte[] { 7, 6, 5, 4, 3, 2, 1, 0 };
+
+            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
+
+            //GERAR IV
+            byte[] iv = pwdGen.GetBytes(16);
+
+            string ivB64 = Convert.ToBase64String(iv);
+
+            return ivB64;
+        }
+
+        //MÉTODO PARA CIFRAR O TEXTO
+        private string CifrarTexto(string txt)
+        {
+
+            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO EM BYTES
+            byte[] txtDecifrado = Encoding.UTF8.GetBytes(txt);
+
+            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
+            byte[] txtCifrado;
+
+            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E CIFRÁ-LO
+            MemoryStream ms = new MemoryStream();
+
+            //INICIALIZAR O SISTEMA DE CIFRAGEM (WRITE)
+            CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+
+            //CIFRAR OS DADOS
+            cs.Write(txtDecifrado, 0, txtDecifrado.Length);
+            cs.Close();
+
+            //GUARDAR OS DADOS CIFRADO QUE ESTÃO NA MEMÓRIA
+            txtCifrado = ms.ToArray();
+
+            //CONVERTER OS BYTES PARA BASE64 (TEXTO)
+            string txtCifradoB64 = Convert.ToBase64String(txtCifrado);
+
+            //DEVOLVER OS BYTES CRIADOS EM BASE64
+            return txtCifradoB64;
+        }
+
         private void buttonEnviarMensagem_Click(object sender, EventArgs e)
         {
             rsa = new RSACryptoServiceProvider();
             aes = new AesCryptoServiceProvider();
             rsaVerify = new RSACryptoServiceProvider();
 
-            string privateKeyFile = "privatekey.txt";
-            string ivFile = "IV.txt";
-            string publicKeyFile = "publickey.txt";
-            string bothFile = "bothkeys.txt";
-            string hFile = "hash.txt";
-            string signFile = "signature.txt";
+            string privateKeyFile = "../../../privatekey.txt";
+            string ivFile = "../../../IV.txt";
+            string publicKeyFile = "../../../publickey.txt";
+            string bothFile = "../../../bothkeys.txt";
+            string hFile = "../../../hash.txt";
+            string signFile = "../../../signature.txt";
 
             byte[] data;
             byte[] hash;
@@ -224,21 +262,6 @@ namespace Client
                 byte[] pack = protocolSI.Make(ProtocolSICmdType.DATA, encrypt);
                 networkStream.Write(pack, 0, pack.Length);
             }
-        }
-
-        private void CloseClient()
-        {
-            byte[] eot = protocolSI.Make(ProtocolSICmdType.EOT);
-            networkStream.Write(eot, 0, eot.Length);
-            networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
-            networkStream.Close();
-            client.Close();
-        }
-
-        private void buttonDisconnect_Click(object sender, EventArgs e)
-        {
-            CloseClient();
-            this.Close();
         }
 
         private void button_Login_Click(object sender, EventArgs e)
@@ -371,67 +394,19 @@ namespace Client
             }
         }
 
-        //GERAR UMA CHAVE SIMÉTRICA A PARTIR DE UMA STRING
-        private string GerarChavePrivada()
+        private void CloseClient()
         {
-            // O salt tem de ter no mínimo 8 bytes e não
-            // é mais do que array be bytes. O array é caracterizado pelo []
-            string pass = "TS";
-            byte[] salt = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
-            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
-
-            //GERAR KEY
-            byte[] key = pwdGen.GetBytes(16);
-            string passB64 = Convert.ToBase64String(key);
-
-            return passB64;
+            byte[] eot = protocolSI.Make(ProtocolSICmdType.EOT);
+            networkStream.Write(eot, 0, eot.Length);
+            networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
+            networkStream.Close();
+            client.Close();
         }
 
-        //GERAR UM VETOR DE INICIALIZAÇÃO A PARTIR DE UMA STRING
-        private string GerarIV()
+        private void buttonDisconnect_Click(object sender, EventArgs e)
         {
-            string pass = "TS";
-
-            byte[] salt = new byte[] { 7, 6, 5, 4, 3, 2, 1, 0 };
-
-            Rfc2898DeriveBytes pwdGen = new Rfc2898DeriveBytes(pass, salt, 1000);
-
-            //GERAR IV
-            byte[] iv = pwdGen.GetBytes(16);
-
-            string ivB64 = Convert.ToBase64String(iv);
-
-            return ivB64;
-        }
-
-        //MÉTODO PARA CIFRAR O TEXTO
-        private string CifrarTexto(string txt)
-        {
-
-            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO EM BYTES
-            byte[] txtDecifrado = Encoding.UTF8.GetBytes(txt);
-
-            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
-            byte[] txtCifrado;
-
-            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E CIFRÁ-LO
-            MemoryStream ms = new MemoryStream();
-
-            //INICIALIZAR O SISTEMA DE CIFRAGEM (WRITE)
-            CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
-
-            //CIFRAR OS DADOS
-            cs.Write(txtDecifrado, 0, txtDecifrado.Length);
-            cs.Close();
-
-            //GUARDAR OS DADOS CIFRADO QUE ESTÃO NA MEMÓRIA
-            txtCifrado = ms.ToArray();
-
-            //CONVERTER OS BYTES PARA BASE64 (TEXTO)
-            string txtCifradoB64 = Convert.ToBase64String(txtCifrado);
-
-            //DEVOLVER OS BYTES CRIADOS EM BASE64
-            return txtCifradoB64;
+            CloseClient();
+            this.Close();
         }
     }
 }

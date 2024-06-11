@@ -9,6 +9,7 @@ using EI.SI;
 using System.Threading;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.IO;
 
 namespace Server
@@ -74,6 +75,32 @@ namespace Server
                     this.client = client;
                     this.clientID = clientID;
                 }
+            }
+
+            //MÉTODO PARA DECIFRAR O TEXTO
+            private string DecifrarTexto(byte[] txtCifradoB64)
+            {
+                //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E DECIFRÁ-LO
+                MemoryStream ms = new MemoryStream(txtCifradoB64);
+
+                //INICIALIZAR O SISTEMA DE CIFRAGEM (READ)
+                CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Read);
+
+                //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO
+                byte[] txtDecifrado = new byte[ms.Length];
+
+                //VARIÁVEL PARA TER O NÚMERO DE BYTES DECIFRADOS
+                int bytesLidos = 0;
+
+                //DECIFRAR OS DADOS
+                bytesLidos = cs.Read(txtDecifrado, 0, txtDecifrado.Length);
+                cs.Close();
+
+                //CONVERTER PARA TEXTO
+                string textoDecifrado = Encoding.UTF8.GetString(txtDecifrado, 0, bytesLidos);
+
+                //DEVOLVER TEXTO DECIFRADO
+                return textoDecifrado;
             }
 
             public void Handle()
@@ -296,7 +323,7 @@ namespace Server
                     return saltedPasswordHashStored.SequenceEqual(hash);
 
                     //TODO: verificar se a password na base de dados 
-                    throw new NotImplementedException();
+                    //throw new NotImplementedException();
                 }
                 catch (Exception e)
                 {
@@ -390,7 +417,7 @@ namespace Server
                 }
             }
 
-            private static byte[] GenerateSalt(int size)
+            public static byte[] GenerateSalt(int size)
             {
                 //Generate a cryptographic random number.
                 RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
@@ -399,36 +426,10 @@ namespace Server
                 return buff;
             }
 
-            private static byte[] GenerateSaltedHash(string plainText, byte[] salt)
+            public static byte[] GenerateSaltedHash(string plainText, byte[] salt)
             {
                 Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
                 return rfc2898.GetBytes(32);
-            }
-
-            //MÉTODO PARA DECIFRAR O TEXTO
-            private string DecifrarTexto(byte[] txtCifradoB64)
-            {
-                //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E DECIFRÁ-LO
-                MemoryStream ms = new MemoryStream(txtCifradoB64);
-
-                //INICIALIZAR O SISTEMA DE CIFRAGEM (READ)
-                CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Read);
-
-                //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO
-                byte[] txtDecifrado = new byte[ms.Length];
-
-                //VARIÁVEL PARA TER O NÚMERO DE BYTES DECIFRADOS
-                int bytesLidos = 0;
-
-                //DECIFRAR OS DADOS
-                bytesLidos = cs.Read(txtDecifrado, 0, txtDecifrado.Length);
-                cs.Close();
-
-                //CONVERTER PARA TEXTO
-                string textoDecifrado = Encoding.UTF8.GetString(txtDecifrado, 0, bytesLidos);
-
-                //DEVOLVER TEXTO DECIFRADO
-                return textoDecifrado;
             }
         }
     }
