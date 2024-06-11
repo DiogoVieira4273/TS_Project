@@ -229,7 +229,7 @@ namespace Server
                                 var login = protocolSI.GetData();
                                 string juntado = Encoding.UTF8.GetString(login);
                                 string[] separar = juntado.Split('+');
-                                string user = "diogo";
+                                string user = "miguel";
                                 string pass = "1234";
                                 if (juntado.Length == 2)
                                 {
@@ -245,7 +245,7 @@ namespace Server
                                 var login2 = protocolSI.GetData();
                                 string juntar = Encoding.UTF8.GetString(login2);
                                 string[] separado = juntar.Split('+');
-                                string username = "miguel";
+                                string username = "diogo";
                                 string password = "1234";
 
                                 if (juntar.Length == 2)
@@ -263,7 +263,7 @@ namespace Server
                                 var register = protocolSI.GetData();
                                 string combine = Encoding.UTF8.GetString(register);
                                 string[] sep = combine.Split('+');
-                                string userReg = "diogo";
+                                string userReg = "miguel";
                                 string passReg = "1234";
 
                                 if (combine.Length == 2)
@@ -284,7 +284,7 @@ namespace Server
                                 var register2 = protocolSI.GetData();
                                 string combinado = Encoding.UTF8.GetString(register2);
                                 string[] sed = combinado.Split('+');
-                                string userReg2 = "miguel";
+                                string userReg2 = "diogo";
                                 string passReg2 = "1234";
 
                                 if (combinado.Length == 2)
@@ -306,7 +306,7 @@ namespace Server
                     networkStream.Close();
                     client.Close();
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine($"{ex.Message}");
                 }

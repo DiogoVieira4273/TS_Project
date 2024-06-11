@@ -7,13 +7,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
-using System.Windows.Forms;
 using System.Net;
 using System.Net.Sockets;
 using EI.SI;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
 using System.IO;
+using System.Windows.Forms;
 
 namespace Client
 {
@@ -274,14 +274,6 @@ namespace Client
             {
                 MessageBox.Show("Username or password can't be blank");
             }
-            else if (UsernameExists(textBoxUsername.Text))
-            {
-                MessageBox.Show("Username already exists");
-            }
-            else if (textBoxUsername.Text != "miguel" || textBoxUsername.Text != "diogo")
-            {
-                MessageBox.Show("Username must be 'miguel' or 'diogo'");
-            }
             else
             {
                 var login = Juntar(user, pass);
@@ -319,7 +311,7 @@ namespace Client
 
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
-                    MessageBox.Show("Login succeed");
+                    MessageBox.Show("Login recept");
 
                     switch (protocolSI.GetCmdType())
                     {
@@ -379,6 +371,14 @@ namespace Client
             {
                 MessageBox.Show("Username or password can't be blank");
             }
+            else if (UsernameExists(textBoxUsername.Text))
+            {
+                MessageBox.Show("Username already exists");
+            }
+            else if (textBoxUsername.Text != "miguel" && textBoxUsername.Text != "diogo")
+            {
+                MessageBox.Show("Username must be 'miguel' or 'diogo'");
+            }
             else
             {
                 var registo = Juntar(user, pass);
@@ -398,8 +398,8 @@ namespace Client
         {
             try
             {
-                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, juntado);
-                byte[] senhasByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, juntado);
+                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_3, juntado);
+                byte[] senhasByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_4, juntado);
 
                 networkStream.Write(senhaByes, 0, senhaByes.Length);
                 networkStream.Write(senhasByes, 0, senhasByes.Length);
@@ -410,7 +410,7 @@ namespace Client
 
                     switch (protocolSI.GetCmdType())
                     {
-                        case ProtocolSICmdType.USER_OPTION_1:
+                        case ProtocolSICmdType.USER_OPTION_3:
                             var msg = protocolSI.GetStringFromData();
                             var reg = Convert.ToBoolean(msg);
                             if (reg == true)
@@ -424,7 +424,7 @@ namespace Client
                                 MessageBox.Show("Register error");
                             }
                             break;
-                        case ProtocolSICmdType.USER_OPTION_2:
+                        case ProtocolSICmdType.USER_OPTION_4:
                             var message = protocolSI.GetStringFromData();
                             var regs = Convert.ToBoolean(message);
                             if (regs == true)
