@@ -274,6 +274,14 @@ namespace Client
             {
                 MessageBox.Show("Username or password can't be blank");
             }
+            else if (UsernameExists(textBoxUsername.Text))
+            {
+                MessageBox.Show("Username already exists");
+            }
+            else if (textBoxUsername.Text != "miguel" || textBoxUsername.Text != "diogo")
+            {
+                MessageBox.Show("Username must be 'miguel' or 'diogo'");
+            }
             else
             {
                 var login = Juntar(user, pass);
@@ -282,13 +290,32 @@ namespace Client
             }
         }
 
+        private bool UsernameExists(string username)
+        {
+            using (SqlConnection connection = new SqlConnection(@"Server=(localdb)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True"))
+            {
+                connection.Open();
+
+                using (SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM Users WHERE Username = @Username", connection))
+                {
+                    command.Parameters.AddWithValue("@Username", username);
+
+                    int userCount = (int)command.ExecuteScalar();
+
+                    return userCount > 0;
+                }
+            }
+        }
+
         private void EnviarLogin(string login)
         {
             try
             {
                 byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, login);
+                byte[] senhasByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, login);
 
                 networkStream.Write(senhaByes, 0, senhaByes.Length);
+                networkStream.Write(senhasByes, 0, senhasByes.Length);
 
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
@@ -308,6 +335,22 @@ namespace Client
                                 buttonEnviarMensagem.Enabled = true;
                             }
                             else if (log == false)
+                            {
+                                MessageBox.Show("Login error");
+                            }
+                            break;
+                        case ProtocolSICmdType.USER_OPTION_2:
+                            var msgs = protocolSI.GetStringFromData();
+                            var logs = Convert.ToBoolean(msgs);
+                            if (logs == true)
+                            {
+                                MessageBox.Show("Login succeed");
+                                textBoxUsername.Clear();
+                                textBoxPassword.Clear();
+                                textBoxEscreverMensagem.Enabled = true;
+                                buttonEnviarMensagem.Enabled = true;
+                            }
+                            else if (logs == false)
                             {
                                 MessageBox.Show("Login error");
                             }
@@ -355,9 +398,11 @@ namespace Client
         {
             try
             {
-                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, juntado);
+                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, juntado);
+                byte[] senhasByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, juntado);
 
                 networkStream.Write(senhaByes, 0, senhaByes.Length);
+                networkStream.Write(senhasByes, 0, senhasByes.Length);
 
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
@@ -365,7 +410,7 @@ namespace Client
 
                     switch (protocolSI.GetCmdType())
                     {
-                        case ProtocolSICmdType.USER_OPTION_2:
+                        case ProtocolSICmdType.USER_OPTION_1:
                             var msg = protocolSI.GetStringFromData();
                             var reg = Convert.ToBoolean(msg);
                             if (reg == true)
@@ -375,6 +420,20 @@ namespace Client
                                 textBoxPassword.Clear();
                             }
                             else if (reg == false)
+                            {
+                                MessageBox.Show("Register error");
+                            }
+                            break;
+                        case ProtocolSICmdType.USER_OPTION_2:
+                            var message = protocolSI.GetStringFromData();
+                            var regs = Convert.ToBoolean(message);
+                            if (regs == true)
+                            {
+                                MessageBox.Show("Register succeed");
+                                textBoxUsername.Clear();
+                                textBoxPassword.Clear();
+                            }
+                            else if (regs == false)
                             {
                                 MessageBox.Show("Register error");
                             }
