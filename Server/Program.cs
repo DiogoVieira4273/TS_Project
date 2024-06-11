@@ -202,7 +202,7 @@ namespace Server
                                 var login = protocolSI.GetData();
                                 string juntado = Encoding.UTF8.GetString(login);
                                 string[] separar = juntado.Split('+');
-                                string user = "miguel";
+                                string user = "diogo";
                                 string pass = "1234";
                                 if (juntado.Length == 2)
                                 {
@@ -218,7 +218,7 @@ namespace Server
                                 var register = protocolSI.GetData();
                                 string combine = Encoding.UTF8.GetString(register);
                                 string[] separado = combine.Split('+');
-                                string userReg = "diogo";
+                                string userReg = "miguel";
                                 string passReg = "1234";
 
                                 if (combine.Length == 2)
@@ -253,7 +253,7 @@ namespace Server
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                    conn.ConnectionString = string.Format(@"Server=(localdb)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
@@ -312,7 +312,7 @@ namespace Server
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                    conn.ConnectionString = string.Format(@"Server=(localdb)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
@@ -355,7 +355,7 @@ namespace Server
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = string.Format(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP PSI\2023_2024\2º Semestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                    conn.ConnectionString = string.Format(@"Server=(localdb)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
@@ -366,7 +366,7 @@ namespace Server
                     SqlParameter paramPassHash = new SqlParameter("@HashSalted", saltedPasswordHash);
 
                     // Declaração do comando SQL
-                    string sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@satPassword,@hashSalted)";
+                    string sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@SaltPassword,@hashSalted)";
 
                     // Prepara comando SQL para ser executado na Base de Dados
                     SqlCommand cmd = new SqlCommand(sql, conn);

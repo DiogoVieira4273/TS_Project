@@ -273,7 +273,7 @@ namespace Client
 
                     switch (protocolSI.GetCmdType())
                     {
-                        case ProtocolSICmdType.USER_OPTION_3:
+                        case ProtocolSICmdType.USER_OPTION_1:
                             var msg = protocolSI.GetStringFromData();
                             var log = Convert.ToBoolean(msg);
                             if (log == true)
@@ -342,7 +342,7 @@ namespace Client
 
                     switch (protocolSI.GetCmdType())
                     {
-                        case ProtocolSICmdType.USER_OPTION_4:
+                        case ProtocolSICmdType.USER_OPTION_2:
                             var msg = protocolSI.GetStringFromData();
                             var reg = Convert.ToBoolean(msg);
                             if (reg == true)
