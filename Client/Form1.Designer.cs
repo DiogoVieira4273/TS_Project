@@ -37,7 +37,7 @@
             this.label10 = new System.Windows.Forms.Label();
             this.textBoxPassword = new System.Windows.Forms.TextBox();
             this.button_Registo = new System.Windows.Forms.Button();
-            this.textBox10 = new System.Windows.Forms.TextBox();
+            this.textBox1 = new System.Windows.Forms.TextBox();
             this.buttonDisconnect = new System.Windows.Forms.Button();
             this.listBoxConversa = new System.Windows.Forms.ListBox();
             this.button_Login = new System.Windows.Forms.Button();
@@ -118,6 +118,7 @@
             this.textBoxPassword.Margin = new System.Windows.Forms.Padding(2);
             this.textBoxPassword.Multiline = true;
             this.textBoxPassword.Name = "textBoxPassword";
+            this.textBoxPassword.PasswordChar = '*';
             this.textBoxPassword.Size = new System.Drawing.Size(221, 28);
             this.textBoxPassword.TabIndex = 21;
             // 
@@ -132,19 +133,19 @@
             this.button_Registo.UseVisualStyleBackColor = true;
             this.button_Registo.Click += new System.EventHandler(this.button_Registo_Click);
             // 
-            // textBox10
+            // textBox1
             // 
-            this.textBox10.BackColor = System.Drawing.SystemColors.ScrollBar;
-            this.textBox10.Location = new System.Drawing.Point(12, 11);
-            this.textBox10.Margin = new System.Windows.Forms.Padding(2);
-            this.textBox10.Multiline = true;
-            this.textBox10.Name = "textBox10";
-            this.textBox10.ReadOnly = true;
-            this.textBox10.Size = new System.Drawing.Size(862, 20);
-            this.textBox10.TabIndex = 23;
-            this.textBox10.Text = "Chat de Conversação";
-            this.textBox10.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
-            this.textBox10.UseWaitCursor = true;
+            this.textBox1.BackColor = System.Drawing.SystemColors.ScrollBar;
+            this.textBox1.Location = new System.Drawing.Point(12, 11);
+            this.textBox1.Margin = new System.Windows.Forms.Padding(2);
+            this.textBox1.Multiline = true;
+            this.textBox1.Name = "textBox1";
+            this.textBox1.ReadOnly = true;
+            this.textBox1.Size = new System.Drawing.Size(862, 20);
+            this.textBox1.TabIndex = 23;
+            this.textBox1.Text = "Chat de Conversação";
+            this.textBox1.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            this.textBox1.UseWaitCursor = true;
             // 
             // buttonDisconnect
             // 
@@ -184,7 +185,7 @@
             this.Controls.Add(this.button_Login);
             this.Controls.Add(this.listBoxConversa);
             this.Controls.Add(this.buttonDisconnect);
-            this.Controls.Add(this.textBox10);
+            this.Controls.Add(this.textBox1);
             this.Controls.Add(this.button_Registo);
             this.Controls.Add(this.textBoxPassword);
             this.Controls.Add(this.label10);
@@ -212,7 +213,7 @@
         private System.Windows.Forms.Label label10;
         private System.Windows.Forms.TextBox textBoxPassword;
         private System.Windows.Forms.Button button_Registo;
-        private System.Windows.Forms.TextBox textBox10;
+        private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.Button buttonDisconnect;
         private System.Windows.Forms.ListBox listBoxConversa;
         private System.Windows.Forms.Button button_Login;

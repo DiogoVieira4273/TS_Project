@@ -32,7 +32,7 @@ namespace Server
 
         static void Main(string[] args)
         {
-            IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, PORT);
+            IPEndPoint endPoint = new IPEndPoint(IPAddress.Any, PORT);
             TcpListener listener = new TcpListener(endPoint);
             listener.Start();
             Console.WriteLine("Server is Ready!!!");
@@ -221,7 +221,7 @@ namespace Server
                                 }
                                 break;
                             case ProtocolSICmdType.EOT:
-                                Console.WriteLine("Ending Thread form cliente () " + clientID);
+                                Console.WriteLine($"Ending Thread form cliente {clientID}");
                                 ack = protocolSI.Make(ProtocolSICmdType.ACK);
                                 networkStream.Write(ack, 0, ack.Length);
                                 break;
@@ -229,24 +229,29 @@ namespace Server
                                 var login = protocolSI.GetData();
                                 string juntado = Encoding.UTF8.GetString(login);
                                 string[] separar = juntado.Split('+');
-                                string user = "miguel";
-                                string pass = "1234";
+                                string user = "nada";
+                                string pass = "nada";
+
                                 if (juntado.Length == 2)
                                 {
                                     user = separar[0];
                                     pass = separar[1];
                                 }
+
                                 var log = VerifyLogin(user, pass);
                                 var logStr = Convert.ToString(log);
-                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, logStr);
+
+                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_3, logStr);
                                 networkStream.Write(ackD, 0, ackD.Length);
+
                                 break;
+
                             case ProtocolSICmdType.USER_OPTION_2:
-                                var login2 = protocolSI.GetData();
-                                string juntar = Encoding.UTF8.GetString(login2);
+                                var register = protocolSI.GetData();
+                                string juntar = Encoding.UTF8.GetString(register);
                                 string[] separado = juntar.Split('+');
-                                string username = "diogo";
-                                string password = "1234";
+                                string username = "nada";
+                                string password = "nada";
 
                                 if (juntar.Length == 2)
                                 {
@@ -254,52 +259,15 @@ namespace Server
                                     password = separado[1];
                                 }
 
-                                var log2 = VerifyLogin(username, password);
-                                var logStr2 = Convert.ToString(log2);
-                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, logStr2);
-                                networkStream.Write(ackD, 0, ackD.Length);
-                                break;
-                            case ProtocolSICmdType.USER_OPTION_3:
-                                var register = protocolSI.GetData();
-                                string combine = Encoding.UTF8.GetString(register);
-                                string[] sep = combine.Split('+');
-                                string userReg = "miguel";
-                                string passReg = "1234";
-
-                                if (combine.Length == 2)
-                                {
-                                    userReg = sep[0];
-                                    passReg = sep[1];
-                                }
-
                                 byte[] salt = GenerateSalt(SALTSIZE);
-                                byte[] hashReg = GenerateSaltedHash(passReg, salt);
+                                byte[] saltedhash = GenerateSaltedHash(password, salt);
 
-                                var reg = Register(userReg, hashReg, salt);
+                                var reg = Register(username, salt, saltedhash);
                                 var regStr = Convert.ToString(reg);
-                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_3, regStr);
+
+                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_4, regStr);
                                 networkStream.Write(ackD, 0, ackD.Length);
-                                break;
-                            case ProtocolSICmdType.USER_OPTION_4:
-                                var register2 = protocolSI.GetData();
-                                string combinado = Encoding.UTF8.GetString(register2);
-                                string[] sed = combinado.Split('+');
-                                string userReg2 = "diogo";
-                                string passReg2 = "1234";
 
-                                if (combinado.Length == 2)
-                                {
-                                    userReg = sed[0];
-                                    passReg = sed[1];
-                                }
-
-                                byte[] salt2 = GenerateSalt(SALTSIZE);
-                                byte[] hashReg2 = GenerateSaltedHash(passReg2, salt2);
-
-                                var reg2 = Register(userReg2, hashReg2, salt2);
-                                var regStr2 = Convert.ToString(reg2);
-                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_4, regStr2);
-                                networkStream.Write(ackD, 0, ackD.Length);
                                 break;
                         }
                     }
@@ -319,13 +287,13 @@ namespace Server
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = string.Format(@"Server=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf; Integrated Security = True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
 
                     // Declaração do comando SQL
-                    string sql = "SELECT * FROM Users WHERE Username = @username";
+                    String sql = "SELECT * FROM Users WHERE Username = @username";
                     SqlCommand cmd = new SqlCommand();
                     cmd.CommandText = sql;
 
@@ -378,7 +346,7 @@ namespace Server
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = string.Format(@"Server=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf; Integrated Security = True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
@@ -388,7 +356,7 @@ namespace Server
                     SqlParameter paramUser = new SqlParameter("@User_Id", userID);
 
                     // Declaração do comando SQL
-                    string sql = "Insert into Mensagens(Mensagem,User_Id) values (@Mensagem,@User_Id)";
+                    String sql = "Insert into Mensagens(Mensagem,User_Id) values (@Mensagem,@User_Id)";
 
 
                     SqlCommand cmd = new SqlCommand(sql, conn);
@@ -421,7 +389,7 @@ namespace Server
                 {
                     // Configurar ligação à Base de Dados
                     conn = new SqlConnection();
-                    conn.ConnectionString = string.Format(@"Server=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf;Integrated Security=True");
+                    conn.ConnectionString = String.Format(@"Data Source = (LocalDB)\MSSQLLocalDB; AttachDbFilename = C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Server\Projeto.mdf; Integrated Security = True");
 
                     // Abrir ligação à Base de Dados
                     conn.Open();
@@ -432,7 +400,7 @@ namespace Server
                     SqlParameter paramPassHash = new SqlParameter("@HashSalted", saltedPasswordHash);
 
                     // Declaração do comando SQL
-                    string sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@SaltPassword,@hashSalted)";
+                    String sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@SaltPassword,@hashSalted)";
 
                     // Prepara comando SQL para ser executado na Base de Dados
                     SqlCommand cmd = new SqlCommand(sql, conn);
