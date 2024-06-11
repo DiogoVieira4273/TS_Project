@@ -14,6 +14,8 @@ using System.Data.SqlClient;
 using System.Security.Cryptography;
 using System.IO;
 using System.Windows.Forms;
+using System.Runtime.Remoting.Lifetime;
+using System.Net.NetworkInformation;
 
 namespace Client
 {
@@ -82,29 +84,74 @@ namespace Client
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
                 {
                     int bytesread = networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
-
+                    string resposta = "";
+                    string decifrar_resposta = "";
                     switch (protocolSI.GetCmdType())
                     {
                         //caso o protocolo seja do tipo Mode escreve na listBox_chat a mensagem dos clientes
                         case ProtocolSICmdType.MODE:
-                            byte[] dados_mensagemEnc = protocolSI.GetData();
-                            string dados_mensagem = Encoding.UTF8.GetString(dados_mensagemEnc);
-
+                            string dados_mensagem = protocolSI.GetStringFromData();
+                            string dados_mensagem_decifrados = "";
+                            /// dados_mensagem_decifrados = DecifrarTexto(dados_mensagem);
+                            dados_mensagem_decifrados = dados_mensagem;
+                            string[] itemsmessage = dados_mensagem_decifrados.Split(';');
                             this.Invoke((MethodInvoker)delegate
                             {
-                                listBoxConversa.Items.Add(dados_mensagem);
+                                listBoxConversa.Items.Add(itemsmessage[0]);
                                 //     listBoxConversa.Text = dados_mensagem_decifrados;
 
                             });
                             //Select_item_listbox();
                             break;
+
+
+
+
+                        // caso o protoloco for do tipo DATA.
+                        // Este protocolo serve para atualizar a célula de jogo no tabuleiro que foi selecionada pelo cliente
+                        case ProtocolSICmdType.DATA:
+                            resposta = protocolSI.GetStringFromData();
+                            // decifrar_resposta = DecifrarTexto(resposta);
+                            decifrar_resposta = resposta;
+                            string[] itemsposicao = decifrar_resposta.Split(';');
+                            int[] itemsposicaoint = new int[2];
+                            break;
+
+                        // caso o protocolo for EOT é porque o cliente quer se desconectar
+                        case ProtocolSICmdType.EOT:
+                            try
+                            {
+                                // enquanto o servidor não retornar com diferente de EOT não dá ordem para o clietne terminar
+                                while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
+                                {
+                                    networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
+                                }
+                            }
+                            catch (Exception)
+                            {
+                            }
+                            break;
                     }
                 }
+
+                while (protocolSI.GetCmdType() != ProtocolSICmdType.ACK)
+                {
+                    networkStream.Read(protocolSI.Buffer, 0, protocolSI.Buffer.Length);
+                }
+                ack = protocolSI.Make(ProtocolSICmdType.ACK);
+                networkStream.Write(ack, 0, ack.Length);
+                // desliga a coneção e o networkstream
+                client.Close();
+                networkStream.Close();
             }
             catch (Exception)
             {
-                //MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
+                MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                this.Invoke((MethodInvoker)delegate
+                {
+                    //groupBox1.Enabled = false;
+                    //  groupBox3.Enabled = false;
+                });
             }
         }
 
@@ -131,12 +178,7 @@ namespace Client
             }
         }
 
-        private void Form1_Load(object sender, EventArgs e) //Não é necessário
-        {
-            textBoxEscreverMensagem.Enabled = false;
-            buttonEnviarMensagem.Enabled = false;
-            listBoxConversa.Enabled = false;
-        }
+       
 
         //GERAR UMA CHAVE SIMÉTRICA A PARTIR DE UMA STRING
         private string GerarChavePrivada()
@@ -264,6 +306,7 @@ namespace Client
                 byte[] pack = protocolSI.Make(ProtocolSICmdType.DATA, encrypt);
                 networkStream.Write(pack, 0, pack.Length);
             }
+            listBoxConversa.Items.Add(msg);
         }
 
         private void button_Login_Click(object sender, EventArgs e)
@@ -271,24 +314,53 @@ namespace Client
             string user = textBoxUsername.Text;
             string pass = textBoxPassword.Text;
 
+
             if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
             {
                 MessageBox.Show("Username or password can't be blank");
             }
             else
             {
-                EnviarLogin(user, pass);
+                if (UsernameExists(user))
+                {
+                    textBoxEscreverMensagem.Enabled = true;
+                    buttonEnviarMensagem.Enabled = true;
+                }
+                //var juntar = Combinar(user, pass);
+                //EnviarLogin(juntar);
             }
         }
 
-        public void EnviarLogin(string user, string pass)
+        private bool UsernameExists(string username)
+        {
+            using (SqlConnection connection = new SqlConnection(@"Server=(localdb)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Client\Projeto.mdf;Integrated Security=True"))
+            {
+                connection.Open();
+
+                using (SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM Users WHERE Username = @Username", connection))
+                {
+                    command.Parameters.AddWithValue("@Username", username);
+
+                    int userCount = (int)command.ExecuteScalar();
+
+                    return userCount > 0;
+                }
+            }
+        }
+
+        private string Combinar(string user, string pass)
+        {
+            string juntar = (user + "+" + pass);
+
+            return juntar;
+        }
+
+        private void EnviarLogin(string juntar)
         {
             try
             {
-                byte[] userBytes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, user);
-                byte[] senhaBytes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, pass);
+                byte[] senhaBytes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, juntar);
 
-                networkStream.Write(userBytes, 0, userBytes.Length);
                 networkStream.Write(senhaBytes, 0, senhaBytes.Length);
 
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
@@ -339,45 +411,42 @@ namespace Client
             {
                 MessageBox.Show("Username or password can't be blank");
             }
-            else if (UsernameExists(textBoxUsername.Text))
+            else if (UsernameExists(user))
             {
                 MessageBox.Show("Username already exists");
             }
-            else if (textBoxUsername.Text != "miguel" && textBoxUsername.Text != "diogo")
+            else if (user != "miguel" && user != "diogo")
             {
                 MessageBox.Show("Username must be 'miguel' or 'diogo'");
             }
             else
             {
-                RegistarLogin(user, pass);
+                var combinar = Combinar(user, pass);
+                RegistarLogin(combinar);
             }
         }
 
-        private bool UsernameExists(string username)
+        public static byte[] GenerateSalt(int size)
         {
-            using (SqlConnection connection = new SqlConnection(@"Server=(localdb)\MSSQLLocalDB;AttachDbFilename=C:\Users\diogo\Desktop\TESP_PSI\2023_2024\2ºSemestre\TS\Projeto\TS_Project\Client\Projeto.mdf;Integrated Security=True"))
-            {
-                connection.Open();
-
-                using (SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM Users WHERE Username = @Username", connection))
-                {
-                    command.Parameters.AddWithValue("@Username", username);
-
-                    int userCount = (int)command.ExecuteScalar();
-
-                    return userCount > 0;
-                }
-            }
+            //Generate a cryptographic random number.
+            RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
+            byte[] buff = new byte[size];
+            rng.GetBytes(buff);
+            return buff;
         }
 
-        public void RegistarLogin(string user, string pass)
+        public static byte[] GenerateSaltedHash(string plainText, byte[] salt)
+        {
+            Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
+            return rfc2898.GetBytes(32);
+        }
+
+        private void RegistarLogin(string cominar)
         {
             try
             {
-                byte[] userBytes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, user);
-                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, pass);
+                byte[] senhaByes = protocolSI.Make(ProtocolSICmdType.USER_OPTION_2, cominar);
 
-                networkStream.Write(userBytes, 0, userBytes.Length);
                 networkStream.Write(senhaByes, 0, senhaByes.Length);
 
                 while (protocolSI.GetCmdType() != ProtocolSICmdType.EOT)
@@ -413,22 +482,6 @@ namespace Client
             {
                 MessageBox.Show("Error", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-
-        public static byte[] GenerateSalt(int size)
-        {
-            //Generate a cryptographic random number.
-            RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
-            byte[] buff = new byte[size];
-            rng.GetBytes(buff);
-            return buff;
-        }
-
-        public static byte[] GenerateSaltedHash(string plainText, byte[] salt)
-        {
-            Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
-            return rfc2898.GetBytes(32);
         }
 
         private void CloseClient()

@@ -200,6 +200,7 @@ namespace Server
                             // caso o protocolo que o cliente enviar for USER_OPTION_1.
                             // Recebe a mensagem que o cliente que enviar para o adversário e envia para os oponentes
                             case ProtocolSICmdType.DATA:
+
                                 byte[] data = protocolSI.GetData();
                                 hash = File.ReadAllBytes(hFile);
                                 byte[] sign = File.ReadAllBytes(signFile);
@@ -230,19 +231,32 @@ namespace Server
                                 string juntado = Encoding.UTF8.GetString(login);
                                 string[] separar = juntado.Split('+');
                                 string user = "miguel";
-                                string pass = "123";
-
+                                string pass = "1234";
+                                //recebe a mensagem
+                                string message = protocolSI.GetStringFromData();
+                                string message_decifrada = "";
                                 if (juntado.Length == 2)
                                 {
                                     user = separar[0];
                                     pass = separar[1];
                                 }
 
-                                var log = VerifyLogin(user, pass);
-                                var logStr = Convert.ToString(log);
+                                if (clientID == 1)
+                                {
+                                    message_decifrada = message;
+                                }
+                                else if (clientID == 2)
+                                {
+                                    message_decifrada = message;
+                                }
 
-                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_3, logStr);
-                                networkStream.Write(ackD, 0, ackD.Length);
+                                BroadCast(message_decifrada, networkStream);
+
+                                //var log = VerifyLogin(user, pass);
+                                //var logStr = Convert.ToString(log);
+
+                                //ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_3, logStr);
+                                //networkStream.Write(ackD, 0, ackD.Length);
 
                                 break;
 
@@ -251,22 +265,21 @@ namespace Server
                                 string juntar = Encoding.UTF8.GetString(register);
                                 string[] separado = juntar.Split('+');
                                 string username = "diogo";
-                                string password = "1234";
+                                string password = "123";
 
                                 if (juntar.Length == 2)
                                 {
                                     username = separado[0];
                                     password = separado[1];
                                 }
+                                //byte[] salt = GenerateSalt(SALTSIZE);
+                                //byte[] saltedhash = GenerateSaltedHash(password, salt);
 
-                                byte[] salt = GenerateSalt(SALTSIZE);
-                                byte[] saltedhash = GenerateSaltedHash(password, salt);
+                                //var reg = Register(username, salt, saltedhash);
+                                //var regStr = Convert.ToString(reg);
 
-                                var reg = Register(username, salt, saltedhash);
-                                var regStr = Convert.ToString(reg);
-
-                                ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_4, regStr);
-                                networkStream.Write(ackD, 0, ackD.Length);
+                                //ackD = protocolSI.Make(ProtocolSICmdType.USER_OPTION_4, regStr);
+                                //networkStream.Write(ackD, 0, ackD.Length);
 
                                 break;
                         }
@@ -280,7 +293,7 @@ namespace Server
                 }
             }
 
-            public bool VerifyLogin(string username, string password)
+            private bool VerifyLogin(string username, string password)
             {
                 SqlConnection conn = null;
                 try
@@ -293,7 +306,7 @@ namespace Server
                     conn.Open();
 
                     // Declaração do comando SQL
-                    string sql = "SELECT * FROM Users WHERE Username = @username";
+                    String sql = "SELECT * FROM Users WHERE Username = @username";
                     SqlCommand cmd = new SqlCommand();
                     cmd.CommandText = sql;
 
@@ -317,11 +330,11 @@ namespace Server
                     // Ler resultado da pesquisa
                     reader.Read();
 
-                    // Obter Hash (password + salt)
-                    byte[] saltedPasswordHashStored = (byte[])reader["SaltedPasswordHash"];
-
                     // Obter salt
-                    byte[] saltStored = (byte[])reader["Salt"];
+                    byte[] saltStored = (byte[])reader["SaltPassword"];
+
+                    // Obter Hash (password + salt)
+                    byte[] saltedPasswordHashStored = (byte[])reader["HashSalted"];
 
                     conn.Close();
 
@@ -330,7 +343,7 @@ namespace Server
                     return saltedPasswordHashStored.SequenceEqual(hash);
 
                     //TODO: verificar se a password na base de dados 
-                    throw new NotImplementedException();
+                    //throw new NotImplementedException();
                 }
                 catch (Exception e)
                 {
@@ -339,7 +352,7 @@ namespace Server
                 }
             }
 
-            public bool RegistarMensagem(byte[] mensagem, int userID)
+            private bool RegistarMensagem(byte[] mensagem, int userID)
             {
                 SqlConnection conn = null;
                 try
@@ -382,7 +395,7 @@ namespace Server
                 }
             }
 
-            public bool Register(string username, byte[] salt, byte[] saltedPasswordHash)
+            private bool Register(string username, byte[] salt, byte[] saltedPasswordHash)
             {
                 SqlConnection conn = null;
                 try
@@ -396,19 +409,19 @@ namespace Server
 
                     // Declaração dos parâmetros do comando SQL
                     SqlParameter paramUsername = new SqlParameter("@username", username);
-                    SqlParameter paramSalt = new SqlParameter("@saltPassord", salt);
-                    SqlParameter paramPassHash = new SqlParameter("@hashSalted", saltedPasswordHash);
+                    SqlParameter paramSalt = new SqlParameter("@SaltPassword", salt);
+                    SqlParameter paramPassHash = new SqlParameter("@HashSalted", saltedPasswordHash);
 
                     // Declaração do comando SQL
-                    string sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@saltPassord,@hashSalted)";
+                    String sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@SaltPassword,@hashSalted)";
 
                     // Prepara comando SQL para ser executado na Base de Dados
                     SqlCommand cmd = new SqlCommand(sql, conn);
 
                     // Introduzir valores aos parâmentros registados no comando SQL
                     cmd.Parameters.Add(paramUsername);
-                    cmd.Parameters.Add(paramSalt);
                     cmd.Parameters.Add(paramPassHash);
+                    cmd.Parameters.Add(paramSalt);
 
                     // Executar comando SQL
                     int lines = cmd.ExecuteNonQuery();
@@ -424,7 +437,7 @@ namespace Server
                 }
             }
 
-            private static byte[] GenerateSalt(int size)
+            public static byte[] GenerateSalt(int size)
             {
                 //Generate a cryptographic random number.
                 RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
@@ -433,7 +446,7 @@ namespace Server
                 return buff;
             }
 
-            private static byte[] GenerateSaltedHash(string plainText, byte[] salt)
+            public static byte[] GenerateSaltedHash(string plainText, byte[] salt)
             {
                 Rfc2898DeriveBytes rfc2898 = new Rfc2898DeriveBytes(plainText, salt, NUMBER_OF_ITERATIONS);
                 return rfc2898.GetBytes(32);
