@@ -39,11 +39,36 @@ namespace Client
                 client.Connect(endPoint);
                 networkStream = client.GetStream();
                 protocolSI = new ProtocolSI();
+                rsa = new RSACryptoServiceProvider();
+                aes = new AesCryptoServiceProvider();
+                rsaVerify = new RSACryptoServiceProvider();
 
                 // verifica se a ligação do cliente com o servidor foi bem sucessida
                 //se for true a ligação foi bem sucedida, se for falso a ligação nao foi bem sucedida porque o servidor já esta lotado
                 if (Ligacao(protocolSI) == true)
                 {
+                    string privateKeyFile = "../../../privatekey.txt";
+                    string ivFile = "../../../IV.txt";
+                    string publicKeyFile = "../../../publickey.txt";
+                    string bothFile = "../../../bothkeys.txt";
+
+                    string publicKey = rsa.ToXmlString(false);
+                    File.WriteAllText(publicKeyFile, publicKey);
+
+                    string bothKeys = rsa.ToXmlString(true);
+                    File.WriteAllText(bothFile, bothKeys);
+
+                    string privateKey = GerarChavePrivada();
+                    string IV = GerarIV();
+                    File.WriteAllText(privateKeyFile, privateKey);
+                    File.WriteAllText(ivFile, IV);
+
+                    byte[] keyaes = Convert.FromBase64String(privateKey);
+                    aes.Key = keyaes;
+
+                    byte[] ivaes = Convert.FromBase64String(IV);
+                    aes.IV = ivaes;
+
                     //conecção com o servidor autenticado
                     InitializeComponent();
                     // inicia a thread do cliente para ficar a escuta dos dados que o servidor enviar
@@ -142,12 +167,12 @@ namespace Client
             aes = new AesCryptoServiceProvider();
             rsaVerify = new RSACryptoServiceProvider();
 
-            string privateKeyFile = "../../../privatekey.txt";
-            string ivFile = "../../../IV.txt";
-            string publicKeyFile = "../../../publickey.txt";
-            string bothFile = "../../../bothkeys.txt";
-            string hFile = "../../../hash.txt";
-            string signFile = "../../../signature.txt";
+            string privateKeyFile = "privatekey.txt";
+            string ivFile = "IV.txt";
+            string publicKeyFile = "publickey.txt";
+            string bothFile = "bothkeys.txt";
+            string hFile = "hash.txt";
+            string signFile = "signature.txt";
 
             byte[] data;
             byte[] hash;

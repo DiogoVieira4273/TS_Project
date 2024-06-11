@@ -202,8 +202,8 @@ namespace Server
                                 var login = protocolSI.GetData();
                                 string juntado = Encoding.UTF8.GetString(login);
                                 string[] separar = juntado.Split('+');
-                                string user = "diogo";
-                                string pass = "123";
+                                string user = "miguel";
+                                string pass = "1234";
                                 if (juntado.Length == 2)
                                 {
                                     user = separar[0];
@@ -218,7 +218,7 @@ namespace Server
                                 var register = protocolSI.GetData();
                                 string combine = Encoding.UTF8.GetString(register);
                                 string[] separado = combine.Split('+');
-                                string userReg = "miguel";
+                                string userReg = "diogo";
                                 string passReg = "1234";
 
                                 if (combine.Length == 2)
@@ -283,11 +283,11 @@ namespace Server
                     // Ler resultado da pesquisa
                     reader.Read();
 
-                    // Obter Hash (password + salt)
-                    byte[] saltedPasswordHashStored = (byte[])reader["SaltedPasswordHash"];
-
                     // Obter salt
-                    byte[] saltStored = (byte[])reader["Salt"];
+                    byte[] saltStored = (byte[])reader["SaltPassword"];
+
+                    // Obter Hash (password + salt)
+                    byte[] saltedPasswordHashStored = (byte[])reader["HashSalted"];
 
                     conn.Close();
 
@@ -362,11 +362,11 @@ namespace Server
 
                     // Declaração dos parâmetros do comando SQL
                     SqlParameter paramUsername = new SqlParameter("@username", username);
-                    SqlParameter paramSalt = new SqlParameter("@salt", salt);
-                    SqlParameter paramPassHash = new SqlParameter("@saltedPasswordHash", saltedPasswordHash);
+                    SqlParameter paramSalt = new SqlParameter("@SaltPassword", salt);
+                    SqlParameter paramPassHash = new SqlParameter("@HashSalted", saltedPasswordHash);
 
                     // Declaração do comando SQL
-                    string sql = "INSERT INTO Users (Username, SaltedPasswordHash, Salt) VALUES (@username,@saltedPasswordHash,@salt)";
+                    string sql = "INSERT INTO Users (Username, SaltPassword, HashSalted) VALUES (@username,@satPassword,@hashSalted)";
 
                     // Prepara comando SQL para ser executado na Base de Dados
                     SqlCommand cmd = new SqlCommand(sql, conn);
