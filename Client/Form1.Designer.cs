@@ -55,7 +55,6 @@
             // 
             // buttonEnviarMensagem
             // 
-            this.buttonEnviarMensagem.Enabled = false;
             this.buttonEnviarMensagem.Location = new System.Drawing.Point(589, 353);
             this.buttonEnviarMensagem.Margin = new System.Windows.Forms.Padding(2);
             this.buttonEnviarMensagem.Name = "buttonEnviarMensagem";
@@ -67,7 +66,6 @@
             // 
             // textBoxEscreverMensagem
             // 
-            this.textBoxEscreverMensagem.Enabled = false;
             this.textBoxEscreverMensagem.Location = new System.Drawing.Point(493, 317);
             this.textBoxEscreverMensagem.Margin = new System.Windows.Forms.Padding(2);
             this.textBoxEscreverMensagem.Multiline = true;
