@@ -18,8 +18,8 @@ namespace Server
     {
 
         //variavel de desconectado o utilizador. Esta variavel fica a true quando o utilizador se desconectar
-        private static bool user1disconect = false;
-        private static bool user2disconect = false;
+        private static bool user1disconnect = false;
+        private static bool user2disconnect = false;
 
         private const int PORT = 10000;
         //lista de TCP Clientes para cada conecçao dos clientes. Esta lista serve para faze ro broadcast para todos os clientes
@@ -67,24 +67,48 @@ namespace Server
                 //  this.client = client;
                 // this.clientID = clientID;
 
-                if (user1disconect == true)
+                if (user1disconnect == true)
                 {
                     this.client = client;
                     this.clientID = 1;
-                    user1disconect = false;
+                    user1disconnect = false;
                 }
                 else
                 {
                     this.client = client;
                     this.clientID = clientID;
                 }
+
+                LogMessage("Client " + clientID + " connected");
+            }
+
+            public void LogMessage(string message)
+            {
+                string logfilename = "log.txt";
+
+                try
+                {
+                    using (StreamWriter sw = File.AppendText(logfilename))
+                    {
+                        sw.WriteLine("\r\nLog Entry : ");
+                        sw.WriteLine("{0}", clientID);
+                        sw.WriteLine("  :");
+                        sw.WriteLine("  :{0}", message);
+                        sw.WriteLine("-------------------------------");
+                    }
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Error");
+                }
             }
 
             //MÉTODO PARA DECIFRAR O TEXTO
-            private string DecifrarTexto(byte[] txtCifradoB64)
+            private string DecifrarTexto(byte[] txtCifrado)
             {
+
                 //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E DECIFRÁ-LO
-                MemoryStream ms = new MemoryStream(txtCifradoB64);
+                MemoryStream ms = new MemoryStream(txtCifrado);
 
                 //INICIALIZAR O SISTEMA DE CIFRAGEM (READ)
                 CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Read);
@@ -98,6 +122,7 @@ namespace Server
                 //DECIFRAR OS DADOS
                 bytesLidos = cs.Read(txtDecifrado, 0, txtDecifrado.Length);
                 cs.Close();
+                ms.Close();
 
                 //CONVERTER PARA TEXTO
                 string textoDecifrado = Encoding.UTF8.GetString(txtDecifrado, 0, bytesLidos);
@@ -122,13 +147,13 @@ namespace Server
                 if (clientID == 1)
                 {
                     tcpClientsList.Insert(0, client);
-                    user1disconect = false;
+                    user1disconnect = false;
                 }
                 else if (clientID == 2)
                 {
                     tcpClientsList.Insert(1, client);
                     //o cliente 2 ligou-se
-                    user2disconect = true;
+                    user2disconnect = true;
                 }
 
                 ProtocolSI protocolSI = new ProtocolSI();
@@ -185,11 +210,13 @@ namespace Server
 
                                 BroadCast(dT, networkStream);
                                 ackD = protocolSI.Make(ProtocolSICmdType.ACK);
-                                networkStream.Write(rsaDec, 0, rsaDec.Length);
+                                networkStream.Write(ackD, 0, ackD.Length);
+                                LogMessage("Client " + clientID + " : " + dT);
                             }
                             else
                             {
                                 Console.WriteLine("Error");
+                                LogMessage("Error");
                             }
                             break;
 
@@ -204,16 +231,16 @@ namespace Server
                             //recebe a mensagem
                             string message = protocolSI.GetStringFromData();
                             string message_decifrada = "";
-                                          
+
                             //decifra a mensagem consoante o Cliente
                             if (clientID == 1)
-                            {   
-                            
+                            {
+
                                 message_decifrada = message;
                             }
                             else if (clientID == 2)
                             {
-                            
+
                                 message_decifrada = message;
                             }
                             if (juntado.Length == 2)
@@ -260,8 +287,7 @@ namespace Server
 
                         case ProtocolSICmdType.PUBLIC_KEY:
                             Console.WriteLine("Client" + clientID + " : " + protocolSI.GetStringFromData());
-                            ack = protocolSI.Make(ProtocolSICmdType.ACK);
-                            networkStream.Write(ack, 0, ack.Length);
+                            LogMessage("Client" + clientID + " : " + protocolSI.GetStringFromData());
                             break;
 
 
@@ -278,28 +304,34 @@ namespace Server
 
                 networkStream.Close();
                 client.Close();
-
+                LogMessage("Client " + clientID + " disconnected");
             }
 
             // função que envia para todos os clientes as mensagem de conversação que são enviadas para o servidor
             public static void BroadCast(string msg, NetworkStream networkStream)
             {
-                string dadoscifradados = "";
-
-                if (user1disconect == false)
+                try
                 {
-                    dadoscifradados = msg;
-                    networkStream = tcpClientsList[0].GetStream();
-                    byte[] ack = protocolSI.Make(ProtocolSICmdType.MODE, dadoscifradados);
-                    networkStream.Write(ack, 0, ack.Length);
+                    string dadoscifrados = "";
+
+                    if (user1disconnect == false)
+                    {
+                        dadoscifrados = msg;
+                        networkStream = tcpClientsList[0].GetStream();
+                        byte[] data = Encoding.UTF8.GetBytes(dadoscifrados);
+                        networkStream.Write(data, 0, data.Length);
+                    }
+                    if (user2disconnect == true)
+                    {
+                        dadoscifrados = msg;
+                        networkStream = tcpClientsList[1].GetStream();
+                        byte[] data = Encoding.UTF8.GetBytes(dadoscifrados);
+                        networkStream.Write(data, 0, data.Length);
+                    }
                 }
-
-                if (user2disconect == true)
+                catch (Exception e)
                 {
-                    dadoscifradados = msg;
-                    networkStream = tcpClientsList[1].GetStream();
-                    byte[] ack = protocolSI.Make(ProtocolSICmdType.MODE, dadoscifradados);
-                    networkStream.Write(ack, 0, ack.Length);
+                    Console.WriteLine("Error: " + e.Message);
                 }
 
             }
@@ -342,10 +374,10 @@ namespace Server
                     reader.Read();
 
                     // Obter Hash (password + salt)
-                    byte[] saltedPasswordHashStored = (byte[])reader["SaltedPasswordHash"];
+                    byte[] saltedPasswordHashStored = (byte[])reader["HashSalted"];
 
                     // Obter salt
-                    byte[] saltStored = (byte[])reader["Salt"];
+                    byte[] saltStored = (byte[])reader["SaltPassword"];
 
                     conn.Close();
 
@@ -404,8 +436,6 @@ namespace Server
                     throw new Exception("Error while inserting an user:" + e.Message);
                 }
             }
-
-
 
             public static byte[] GenerateSalt(int size)
             {

@@ -208,34 +208,21 @@ namespace Client
             return ivB64;
         }
 
-        //MÉTODO PARA CIFRAR O TEXTO
         private string CifrarTexto(string txt)
         {
+            byte[] textoDescifrado = Encoding.UTF8.GetBytes(txt);
+            byte[] textoCifrado;
 
-            //VARIÁVEL PARA GUARDAR O TEXTO DECIFRADO EM BYTES
-            byte[] txtDecifrado = Encoding.UTF8.GetBytes(txt);
-
-            //VARIÁVEL PARA GUARDAR O TEXTO CIFRADO EM BYTES
-            byte[] txtCifrado;
-
-            //RESERVAR ESPAÇO NA MEMÓRIA PARA COLOCAR O TEXTO E CIFRÁ-LO
-            MemoryStream ms = new MemoryStream();
-
-            //INICIALIZAR O SISTEMA DE CIFRAGEM (WRITE)
-            CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
-
-            //CIFRAR OS DADOS
-            cs.Write(txtDecifrado, 0, txtDecifrado.Length);
-            cs.Close();
-
-            //GUARDAR OS DADOS CIFRADO QUE ESTÃO NA MEMÓRIA
-            txtCifrado = ms.ToArray();
-
-            //CONVERTER OS BYTES PARA BASE64 (TEXTO)
-            string txtCifradoB64 = Convert.ToBase64String(txtCifrado);
-
-            //DEVOLVER OS BYTES CRIADOS EM BASE64
-            return txtCifradoB64;
+            using (MemoryStream ms = new MemoryStream())
+            {
+                using (CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write))
+                {
+                    cs.Write(textoDescifrado, 0, textoDescifrado.Length);
+                }
+                textoCifrado = ms.ToArray();
+            }
+            string textoCifradoB64 = Convert.ToBase64String(textoCifrado);
+            return textoCifradoB64;
         }
 
         private void buttonEnviarMensagem_Click(object sender, EventArgs e)
@@ -272,23 +259,36 @@ namespace Client
             aes.IV = ivaes;
 
             string dadoscifradados = textBoxEscreverMensagem.Text;
-            try
+            rsaVerify.FromXmlString(publicKey);
+            
+            if (string.IsNullOrEmpty(dadoscifradados))
             {
-                //criação de um array de bytes com a mensagem a enviar e envio da mesma para o servidor
-                byte[] packet = protocolSI.Make(ProtocolSICmdType.USER_OPTION_1, dadoscifradados);
+                MessageBox.Show("Message can't be blank");
+            }
+            else
+            {
+                textBoxEscreverMensagem.Clear();
 
-                // Enviar mensagem
-                networkStream.Write(packet, 0, packet.Length);
-            }
-            catch (Exception)
-            {
-                MessageBox.Show("Erro no envio de dados ao servidor.", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                textBoxEscreverMensagem.Text = "";
+                string cifrar = CifrarTexto(dadoscifradados);
+                byte[] cifrarBytes = Convert.FromBase64String(cifrar);
+
+                using (SHA1 sha1 = SHA1.Create())
+                {
+                    data = Encoding.UTF8.GetBytes(dadoscifradados);
+
+                    hash = sha1.ComputeHash(data);
+                }
+                File.WriteAllBytes(hFile, hash);
+
+                byte[] signature = rsa.SignHash(hash, CryptoConfig.MapNameToOID("SHA1"));
+                File.WriteAllBytes(signFile, signature);
+                byte[] msgDec = rsa.Encrypt(cifrarBytes, RSAEncryptionPadding.Pkcs1);
+
+                byte[] msg = protocolSI.Make(ProtocolSICmdType.DATA, msgDec);
+                networkStream.Write(msg, 0, msg.Length);
             }
         }
+
 
         private void button_Login_Click(object sender, EventArgs e)
         {
@@ -491,7 +491,7 @@ namespace Client
         private void buttonDisconnect_Click(object sender, EventArgs e)
         {
             CloseClient();
-            this.Close();
+            Close();
         }
     }
 }
