@@ -60,18 +60,11 @@ namespace Client
                 {
                     // conecção com o servidor rejeitada
                     InitializeComponent();
-                    listBoxConversa.Items.Add(" Server - Numero maximo de clientes");
-                    //Select_item_listbox();
-                    //connected = false;
-                    byte[] eot = protocolSI.Make(ProtocolSICmdType.ACK);
-                    networkStream.Write(eot, 0, eot.Length);
                 }
             }
             catch (Exception)
             {
                 MessageBox.Show("Error. Ligação com o servidor", "Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                InitializeComponent();
-                //errorconnected = true;
             }
         }
 
@@ -146,7 +139,7 @@ namespace Client
             }
             catch (Exception)
             {
-                MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                //MessageBox.Show("Erro com o servidor. Problemas técnicos", "Error Server", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

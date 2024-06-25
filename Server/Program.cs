@@ -46,10 +46,7 @@ namespace Server
                 Console.WriteLine("Client {0} connected", clientCounter);
                 ClientHandler clientHandler = new ClientHandler(client, clientCounter);
                 clientHandler.Handle();
-
             }
-
-
         }
 
         class ClientHandler
